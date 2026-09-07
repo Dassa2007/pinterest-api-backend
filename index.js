@@ -1,5 +1,6 @@
 const express = require('express');
 const axios = require('axios');
+const cheerio = require('cheerio');
 const cors = require('cors');
 
 const app = express();
@@ -7,42 +8,60 @@ app.use(cors({ origin: '*' }));
 app.use(express.json());
 
 app.get('/', (req, res) => {
-  res.json({ status: "Vercel Pinterest API is active!" });
+  res.json({ status: "Pinterest Direct Scraper API is running!" });
 });
 
 app.get('/download', async (req, res) => {
-  const pinUrl = req.query.url;
+  let pinUrl = req.query.url;
   if (!pinUrl) {
     return res.status(400).json({ success: false, error: "Please provide a Pinterest URL" });
   }
 
   try {
-    // Vercel සර්වර්ලස් සීමාවලට ගැළපෙන ඉතා වේගවත් API ක්‍රමයක්
-    const response = await axios.get(`https://www.dark-yasiya-api.site/download/pinterest?url=${encodeURIComponent(pinUrl)}`, {
+    // pin.it කෙටි ලින්ක් එකක් නම් මුල් ලින්ක් එක ලබා ගැනීම
+    if (pinUrl.includes('pin.it')) {
+      const resp = await axios.get(pinUrl, {
+        maxRedirects: 5,
+        headers: { "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15" }
+      });
+      pinUrl = resp.request.res.responseUrl || pinUrl;
+    }
+
+    const response = await axios.get(pinUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9"
+      },
       timeout: 8000
     });
 
-    if (response.data && response.data.status && response.data.result) {
-      let videoUrl = response.data.result.url || response.data.result;
-      return res.json({ success: true, download_url: videoUrl });
-    }
+    const $ = cheerio.load(response.data);
+    let videoUrl = null;
 
-    return res.status(404).json({ success: false, error: "Could not extract video from this link." });
-  } catch (err) {
-    // විකල්ප ක්‍රමයක් ලෙස වෙනත් ස්ටේබල් කෝඩ් එකක් මඟින් උත්සාහ කිරීම
-    try {
-      const altRes = await axios.get(`https://api.giftedtech.my.id/api/download/pinterest?url=${encodeURIComponent(pinUrl)}`, {
-        timeout: 8000
+    // OpenGraph වීඩියෝ ලින්ක් එක සෙවීම
+    videoUrl = $('meta[property="og:video"]').attr('content') || 
+               $('meta[property="og:video:secure_url"]').attr('content');
+
+    // හමුවී නැත්නම් script ටැග්ස් තුළ ඇති .mp4 ලින්ක් එක සෙවීම
+    if (!videoUrl) {
+      $('script').each((i, el) => {
+        const text = $(el).html();
+        if (text && text.includes('.mp4')) {
+          const match = text.match(/"(https:\/\/[^"]+\.mp4[^"]*)"/);
+          if (match && match[1]) {
+            videoUrl = match[1].replace(/\\u002F/g, '/');
+          }
+        }
       });
-      if (altRes.data && altRes.data.result) {
-        let altVideo = altRes.data.result.video_url || altRes.data.result;
-        return res.json({ success: true, download_url: altVideo });
-      }
-    } catch (altErr) {
-      // දෝෂය මඟ හැරීම
     }
 
-    return res.status(500).json({ success: false, error: "Request failed. Please try a different Pinterest link." });
+    if (videoUrl) {
+      return res.json({ success: true, download_url: videoUrl });
+    } else {
+      return res.status(404).json({ success: false, error: "Video not found in this Pinterest link." });
+    }
+  } catch (err) {
+    return res.status(500).json({ success: false, error: "Failed to fetch: " + err.message });
   }
 });
 
