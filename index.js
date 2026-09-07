@@ -18,7 +18,6 @@ app.get('/download', async (req, res) => {
   }
 
   try {
-    // pin.it ලින්ක් එකක් නම් මුල් ලින්ක් එක ලබා ගැනීම
     if (pinUrl.includes('pin.it')) {
       const resp = await axios.get(pinUrl, {
         maxRedirects: 5,
@@ -27,7 +26,6 @@ app.get('/download', async (req, res) => {
       pinUrl = resp.request.res.responseUrl || pinUrl;
     }
 
-    // Pinterest පේජ් එකට රික්වෙස්ට් එකක් යැවීම
     const response = await axios.get(pinUrl, {
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -38,11 +36,9 @@ app.get('/download', async (req, res) => {
     const $ = cheerio.load(response.data);
     let videoUrl = null;
 
-    // 1. og:video ටැග් එකෙන් වීඩියෝ ලින්ක් එක සෙවීම
     videoUrl = $('meta[property="og:video"]').attr('content') || 
                $('meta[property="og:video:secure_url"]').attr('content');
 
-    // 2. නැතිනම් script ටැග්ස් වලින් MP4 ලින්ක් එක සෙවීම
     if (!videoUrl) {
       $('script').each((i, el) => {
         const text = $(el).html();
@@ -60,7 +56,7 @@ app.get('/download', async (req, res) => {
     } else {
       return res.status(404).json({ success: false, error: "Video not found in this Pinterest link." });
     }
-  } catch (err) {
+  } ziatch (err) {
     return res.status(500).json({ success: false, error: "Failed to fetch video: " + err.message });
   }
 });
