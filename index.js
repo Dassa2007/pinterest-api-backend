@@ -7,7 +7,7 @@ app.use(cors({ origin: '*' }));
 app.use(express.json());
 
 app.get('/', (req, res) => {
-  res.json({ status: "API is running!" });
+  res.json({ status: "Backend is running!" });
 });
 
 app.get('/download', async (req, res) => {
@@ -17,29 +17,17 @@ app.get('/download', async (req, res) => {
   }
 
   try {
-    const response = await axios.post('https://api.cobalt.tools/api/json', {
-      url: pinUrl,
-      vQuality: 'max'
-    }, {
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        'User-Agent': 'Mozilla/5.0'
-      }
-    });
-
-    if (response.data) {
-      let downloadUrl = response.data.url;
-      if (!downloadUrl && response.data.picker && response.data.picker.length > 0) {
-        downloadUrl = response.data.picker[0].url;
-      }
-      if (downloadUrl) {
-        return res.json({ success: true, download_url: downloadUrl });
-      }
+    // වෙනත් නිදහස් සහ විශ්වාසදායක Pinterest API එකක් භාවිතය
+    const apiRes = await axios.get(`https://www.dark-yasiya-api.site/download/pinterest?url=${encodeURIComponent(pinUrl)}`);
+    
+    if (apiRes.data && apiRes.data.status && apiRes.data.result) {
+      let videoUrl = apiRes.data.result.url || apiRes.data.result;
+      return res.json({ success: true, download_url: videoUrl });
     }
-    return res.status(404).json({ success: false, error: "Video not found" });
+
+    return res.status(404).json({ success: false, error: "Could not fetch video from this link." });
   } catch (err) {
-    return res.status(500).json({ success: false, error: err.message });
+    return res.status(500).json({ success: false, error: "Failed to fetch video: " + err.message });
   }
 });
 
