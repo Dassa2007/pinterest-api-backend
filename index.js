@@ -56,7 +56,7 @@ app.get('/download', async (req, res) => {
     } else {
       return res.status(404).json({ success: false, error: "Video not found in this Pinterest link." });
     }
-  } ziatch (err) {
+  } catch (err) {
     return res.status(500).json({ success: false, error: "Failed to fetch video: " + err.message });
   }
 });
